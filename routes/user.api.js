@@ -40,7 +40,6 @@ const validateUser = () => {
   return [
     body("name", "Username cannot empty").notEmpty(),
     body("name", "Username must be Alphabet").matches(/^[A-Za-z\s]+$/),
-    body("role", "Role cannot empty").notEmpty(),
   ];
 };
 

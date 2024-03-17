@@ -8,7 +8,7 @@ const User = require("../models/User");
 const taskController = {};
 
 taskController.getTask = async (req, res, next) => {
-  const allowedQueries = ["name", "status"];
+  const allowedQueries = ["name", "status", "createdAt", "updatedAt"];
   try {
     let tasks = [];
     const keys = Object.keys(req.query);
@@ -18,7 +18,7 @@ taskController.getTask = async (req, res, next) => {
           throw new AppError(400, "Queries not allowed", "Get Task Error");
         }
       });
-      const { name, status } = req.query;
+      const { name, status, createdAt, updatedAt } = req.query;
       const query = Task.find({ isDeleted: false });
       if (name) {
         query.where("name").equals(name);
@@ -26,8 +26,14 @@ taskController.getTask = async (req, res, next) => {
       if (status) {
         query.where("status").equals(status);
       }
+      if (createdAt) {
+        query.sort({ createdAt: parseInt(createdAt) });
+      }
+      if (updatedAt) {
+        query.sort({ updatedAt: parseInt(updatedAt) });
+      }
       query.populate("assignee");
-      query.sort("-createdAt, -updateAt");
+
       tasks = await query.exec();
     } else {
       tasks = await Task.find()
@@ -154,13 +160,32 @@ taskController.updateTask = async (req, res, next) => {
   const { status } = req.body;
   const { id } = req.params;
   try {
+    let taskUpdate = null;
     const result = validationResult(req);
     if (result.isEmpty()) {
-      const taskUpdate = await Task.findOneAndUpdate(
-        { _id: id },
-        { $set: { status: status } },
-        { new: true }
-      );
+      const query = await Task.findOne({ _id: id });
+      const taskStatus = query["status"];
+      if (taskStatus === "done") {
+        if (status === "archive") {
+          taskUpdate = await Task.findOneAndUpdate(
+            { _id: id },
+            { status: status },
+            { new: true }
+          );
+        } else {
+          throw new AppError(
+            400,
+            "Can't update task status",
+            "Update Task Error"
+          );
+        }
+      } else {
+        taskUpdate = await Task.findOneAndUpdate(
+          { _id: id },
+          { status: status },
+          { new: true }
+        );
+      }
       sendResponse(
         res,
         200,
